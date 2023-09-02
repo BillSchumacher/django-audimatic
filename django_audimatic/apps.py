@@ -6,9 +6,13 @@ from django.db.models import options
 
 if "triggers" not in state.DEFAULT_NAMES:  # pragma: no branch
     state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("triggers",)
+if "triggers" not in options.DEFAULT_NAMES:  # pragma: no branch
+    options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ("triggers",)
 
 if "audit_table" not in options.DEFAULT_NAMES:  # pragma: no branch
     options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ("audit_table", "audit_options",)
+if "audit_table" not in state.DEFAULT_NAMES:  # pragma: no branch
+    state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("audit_table", "audit_options",)
 
 
 def patch_migrations():
@@ -18,6 +22,11 @@ def patch_migrations():
     if "triggers" not in state.DEFAULT_NAMES:  # pragma: no branch
         state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("triggers",)
 
+    if "audit_table" not in state.DEFAULT_NAMES:  # pragma: no branch
+        state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("audit_table", "audit_options",)
+
+    if "triggers" not in options.DEFAULT_NAMES:  # pragma: no branch
+        options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ("triggers",)
     if "audit_table" not in options.DEFAULT_NAMES:  # pragma: no branch
         options.DEFAULT_NAMES = tuple(options.DEFAULT_NAMES) + ("audit_table", "audit_options",)
 
