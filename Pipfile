@@ -5,8 +5,13 @@ name = "pypi"
 
 [packages]
 django = "*"
+django-pgtrigger = "*"
+psycopg2 = "*"
 
 [dev-packages]
+build = "*"
+twine = "*"
+hatchling = "*"
 
 [requires]
 python_version = "3.11"
