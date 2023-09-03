@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 django = "*"
+django-nonrelated-inlines = "*"
 django-pgtrigger = "*"
 psycopg2 = "*"
 
@@ -12,6 +13,10 @@ psycopg2 = "*"
 build = "*"
 twine = "*"
 hatchling = "*"
+black = "*"
+isort = "*"
+pylint = "*"
+flake8 = "*"
 
 [requires]
 python_version = "3.11"

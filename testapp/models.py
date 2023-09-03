@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
-from django_audimatic.models import AuditTrigger, AuditTrail
+
+from django_audimatic.models import AuditTrail, AuditTrigger
 
 
 class UserAuditTrail(AuditTrail):
@@ -7,6 +8,5 @@ class UserAuditTrail(AuditTrail):
 
 
 class CustomUser(AbstractUser, AuditTrigger):
-
     class Meta(AuditTrigger.Meta):
         audit_table = UserAuditTrail
