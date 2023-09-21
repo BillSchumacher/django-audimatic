@@ -6,6 +6,7 @@ import django.contrib.postgres.fields.hstore
 import django.utils.timezone
 import pgtrigger.compiler
 import pgtrigger.migrations
+from django.contrib.postgres.operations import HStoreExtension
 from django.db import migrations, models
 
 import testapp.models
@@ -19,6 +20,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        HStoreExtension(),
         migrations.CreateModel(
             name="UserAuditTrail",
             fields=[

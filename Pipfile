@@ -17,6 +17,8 @@ black = "*"
 isort = "*"
 pylint = "*"
 flake8 = "*"
+coverage = "*"
+behave-django = "*"
 
 [requires]
 python_version = "3.11"

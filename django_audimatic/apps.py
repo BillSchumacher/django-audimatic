@@ -47,28 +47,27 @@ class DjangoAudimaticConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     name = "django_audimatic"
 
-    @classmethod
-    def create(cls, entry):
-        result = super().create(entry)
-
-        from django.apps import apps
-        from django.conf import settings
-
-        if "pgtrigger" not in settings.INSTALLED_APPS:
-            settings.INSTALLED_APPS.append("pgtrigger")
-
-        if "nonrelated_inlines" not in settings.INSTALLED_APPS:
-            settings.INSTALLED_APPS.append("nonrelated_inlines")
-
-        apps.app_configs = OrderedDict()
-        apps.apps_ready = apps.models_ready = apps.loading = apps.ready = False
-        apps.clear_cache()
-        apps.populate(settings.INSTALLED_APPS)
-        return result
-
     def ready(self):
         """
         Do all necessary patching
         """
 
+        from django.apps import apps
+        from django.conf import settings
+
         patch_migrations()
+        dirty = False
+
+        if "pgtrigger" not in settings.INSTALLED_APPS:
+            settings.INSTALLED_APPS.append("pgtrigger")
+            dirty = True
+
+        if "nonrelated_inlines" not in settings.INSTALLED_APPS:
+            settings.INSTALLED_APPS.append("nonrelated_inlines")
+            dirty = True
+
+        if dirty:
+            apps.app_configs = OrderedDict()
+            apps.apps_ready = apps.models_ready = apps.loading = apps.ready = False
+            apps.clear_cache()
+            apps.populate(settings.INSTALLED_APPS)

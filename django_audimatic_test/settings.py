@@ -40,6 +40,8 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
 ]
+if DEBUG:
+    INSTALLED_APPS.append("behave_django")
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -81,8 +83,8 @@ DATABASES = {
         "NAME": "django_audimatic",
         "HOST": "127.0.0.1",
         "PORT": 5432,
-        "USER": "postgres",
-        "PASSWORD": "",
+        "USER": "local",
+        "PASSWORD": "dev",
     }
 }
 
