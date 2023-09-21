@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-audimatic"
-version = "0.2.2"
+version = "0.2.3"
 authors = [
   { name="Bill Schumacher", email="34168009+BillSchumacher@users.noreply.github.com" },
 ]
@@ -64,6 +64,6 @@ max-line-length = "88"
 
 [tool.hatch.build]
 include = [
-  "django_audimatic/*.py",
+  "django_audimatic/**/*.py",
 ]
 exclude = ["testapp*", "tests*", "django_auditmatic_test*"]
