@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import pgtrigger
+from django.contrib.auth import get_user_model
 from django.contrib.postgres.fields import HStoreField
 from django.core import checks
 from django.db import models
@@ -163,3 +164,18 @@ class AuditTrigger(models.Model):
             )
             .all()
         )
+
+
+class AuditActions(models.Model):
+    """Tracks actions performed on a table.
+
+    When a record is restored from an audit trail, etc.
+    """
+
+    action = models.CharField(max_length=128)
+    audit_table = models.CharField(max_length=128)
+    audit_row_id = models.BigIntegerField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(
+        get_user_model(), on_delete=models.DO_NOTHING, null=True, blank=True
+    )
