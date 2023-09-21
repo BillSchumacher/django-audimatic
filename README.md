@@ -70,6 +70,17 @@ Usage
     
     ```
 
+4. Add HStoreExtension
+   ```python
+   from django.contrib.postgres.operations import HStoreExtension
+   
+   ...
+       operations = [
+           HStoreExtension(),
+       ]
+   ...
+   ```
+
 Other
 ---
 
