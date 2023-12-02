@@ -21,7 +21,7 @@ jobs:
         env:
           POSTGRES_USER: local
           POSTGRES_PASSWORD: dev
-          POSTGRES_DB: github_actions
+          POSTGRES_DB: django_audimatic
         ports:
           - 5432:5432
         # needed because the postgres container does not provide a healthcheck
@@ -44,8 +44,8 @@ jobs:
         pip install 'django==${{ matrix.dj-version }}'
     - name: Run Tests
       run: |
-        DATABASE_URL=psql://local:dev@localhost:5432/github_actions coverage run -p manage.py migrate
-        DATABASE_URL=psql://local:dev@localhost:5432/github_actions coverage run -p manage.py behave
+        DATABASE_URL=psql://local:dev@localhost:5432/django_audimatic coverage run -p manage.py migrate
+        DATABASE_URL=psql://local:dev@localhost:5432/django_audimatic coverage run -p manage.py behave
         coverage combine
     - name: Upload coverage data to coveralls.io
       run: coveralls --service=github
