@@ -1,0 +1,4 @@
+[behave]
+paths = django_audimatic/acceptance
+junit_directory = tests/reports
+junit = yes

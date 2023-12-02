@@ -19,6 +19,7 @@ pylint = "*"
 flake8 = "*"
 coverage = "*"
 behave-django = "*"
+behave-django-steps = "*"
 
 [requires]
 python_version = "3.11"
