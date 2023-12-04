@@ -2,5 +2,5 @@
 Feature: Django admin model tests
 
   Scenario: Test User model has an audit trail
-    Given a "User" model is available
-    Then the "User" model should have an audit trail
+    Given a "CustomUser" model is available
+    Then the "CustomUser" model should have an audit trail

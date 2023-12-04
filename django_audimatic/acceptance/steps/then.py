@@ -6,7 +6,4 @@ from behave import then
 def step_impl(context, model_name):
     """Check that the model has an audit trail."""
     model = context.models[model_name]
-    print(dir(model))
-    print(dir(model._meta.app_config))
-    print(context.models.keys())
     context.test.assertTrue(hasattr(model, "get_audit_trail"))
