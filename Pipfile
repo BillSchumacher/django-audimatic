@@ -20,6 +20,7 @@ flake8 = "*"
 coverage = "*"
 behave-django = "*"
 behave-django-steps = "0.5.2"
+coveralls = "*"
 
 [requires]
 python_version = "3.11"
