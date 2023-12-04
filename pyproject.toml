@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-audimatic"
-version = "0.2.3"
+version = "0.3.0"
 authors = [
   { name="Bill Schumacher", email="34168009+BillSchumacher@users.noreply.github.com" },
 ]
@@ -16,8 +16,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Web Environment",
     "Framework :: Django",
-    "Framework :: Django :: 3.0",
-    "Framework :: Django :: 3.1",
     "Framework :: Django :: 3.2",
     "Framework :: Django :: 4.0",
     "Framework :: Django :: 4.1",
@@ -37,7 +35,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-  "django",
+  "django>=3.2",
   "django-nonrelated-inlines",
   "django-pgtrigger",
   "psycopg2"
