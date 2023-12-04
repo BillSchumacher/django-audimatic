@@ -24,7 +24,7 @@ Usage
 1. Add to INSTALLED_APPS
 
     ```python
-    
+
     INSTALLED_APPS = [
         ...,
         "django_audimatic",
@@ -33,7 +33,7 @@ Usage
     ```
 
 2. Create audit trail tables and subclass AuditTrigger
-    
+
     ```python
     from django.contrib.auth.models import AbstractUser
     from django_audimatic.models import AuditTrail, AuditTrigger
@@ -41,39 +41,39 @@ Usage
 
     class UserAuditTrail(AuditTrail):
         pass
-    
-    
+
+
     class CustomUser(AbstractUser, AuditTrigger):
         class Meta(AuditTrigger.Meta):
             audit_table = UserAuditTrail
     ```
-   
+
 3. Register AdminModels
     ```python
     from django.contrib import admin
     from django.contrib.auth.admin import UserAdmin
-    
+
     from django_audimatic.admin import DiffInline
     from testapp.models import CustomUser, UserAuditTrail
-    
-    
+
+
     class CustomUserAuditTrail(DiffInline):
         model = CustomUser.get_audit_table()
-    
-    
+
+
     class CustomUserAdmin(UserAdmin):
         inlines = (CustomUserAuditTrail,)
-    
-    
+
+
     admin.site.register(UserAuditTrail, admin.ModelAdmin)
     admin.site.register(CustomUser, CustomUserAdmin)
-    
+
     ```
 
 4. Add HStoreExtension
    ```python
    from django.contrib.postgres.operations import HStoreExtension
-   
+
    ...
        operations = [
            HStoreExtension(),

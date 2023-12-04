@@ -4,7 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-django = "*"
+django = ">=3.2.23,<4.3"
 django-nonrelated-inlines = "*"
 django-pgtrigger = "*"
 psycopg2 = "*"
@@ -19,6 +19,8 @@ pylint = "*"
 flake8 = "*"
 coverage = "*"
 behave-django = "*"
+behave-django-steps = "0.5.2"
+coveralls = "*"
 
 [requires]
 python_version = "3.11"
