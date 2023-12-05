@@ -1,5 +1,6 @@
 django-audimatic
 ===
+[![Coverage Status](https://coveralls.io/repos/github/BillSchumacher/django-audimatic/badge.svg?branch=main)](https://coveralls.io/github/BillSchumacher/django-audimatic?branch=main)
 
 Easy audit trails.
 
