@@ -6,7 +6,7 @@ name = "pypi"
 [packages]
 django = ">=3.2.23,<5.2"
 django-nonrelated-inlines = "*"
-django-pgtrigger = "*"
+django-pgtrigger = "<4.11.1"
 
 [dev-packages]
 build = "*"
