@@ -15,15 +15,15 @@ jobs:
         python-version: [3.8, 3.9, "3.10", "3.11"]
         dj-version: ["3.2.*", "4.0.*", "4.1.*", "4.2.*", "5.0.*", "5.1.*"]
         psycopg: ["psycopg2", "psycopg[binary,pool]"]
-      exclude:
-        - dj-version: "5.0.*"
-          python-version: 3.8
-        - dj-version: "5.0.*"
-          python-version: 3.9
-        - dj-version: "5.1.*"
-          python-version: 3.8
-        - dj-version: "5.1.*"
-          python-version: 3.9
+        exclude:
+          - dj-version: "5.0.*"
+            python-version: 3.8
+          - dj-version: "5.0.*"
+            python-version: 3.9
+          - dj-version: "5.1.*"
+            python-version: 3.8
+          - dj-version: "5.1.*"
+            python-version: 3.9
     services:
       postgres:
         image: postgres:latest
