@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-audimatic"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
   { name="Bill Schumacher", email="34168009+BillSchumacher@users.noreply.github.com" },
 ]
@@ -38,7 +38,6 @@ dependencies = [
   "django>=3.2",
   "django-nonrelated-inlines",
   "django-pgtrigger",
-  "psycopg2"
 ]
 
 [project.urls]
