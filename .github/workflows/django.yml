@@ -14,6 +14,7 @@ jobs:
       matrix:
         python-version: [3.8, 3.9, "3.10", "3.11"]
         dj-version: ["3.2.*", "4.0.*", "4.1.*", "4.2.*"]
+        psycopg: ["psycopg2", "psycopg[binary,pool]"]
 
     services:
       postgres:
@@ -42,6 +43,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install 'django==${{ matrix.dj-version }}'
+        pip install ${{ matrix.psycopg }}
     - name: Run Tests
       run: |
         DATABASE_URL=psql://local:dev@localhost:5432/django_audimatic coverage run -p manage.py migrate

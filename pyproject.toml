@@ -38,7 +38,6 @@ dependencies = [
   "django>=3.2",
   "django-nonrelated-inlines",
   "django-pgtrigger",
-  "psycopg"
 ]
 
 [project.urls]
