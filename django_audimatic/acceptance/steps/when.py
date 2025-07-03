@@ -1,5 +1,5 @@
 """When steps."""
-from behave import when
+from behave import when, given
 from testapp.models import CustomUser, UserAuditTrail
 
 @when('I change the "{model_name}" username to "{username}" and create an audit entry for the change')
@@ -26,6 +26,7 @@ def step_impl(context):
     context.audit_trail = instance.get_audit_trail()
 
 @when("I delete the instance and create an audit entry for the deletion")
+@given("I delete the instance and create an audit entry for the deletion")
 def step_impl(context):
     """Delete instance and add audit entry for deletion."""
     instance = context.instance
@@ -40,6 +41,7 @@ def step_impl(context):
     context.before = before
 
 @when("I restore the instance from the last audit entry")
+@given("I restore the instance from the last audit entry")
 def step_impl(context):
     """Restore the instance from the last audit entry."""
     audit_entry = getattr(context, "audit_entry", None)
