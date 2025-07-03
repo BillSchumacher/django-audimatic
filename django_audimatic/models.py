@@ -10,6 +10,10 @@ from django.core import checks
 from django.db import models
 from django.db.models import ExpressionWrapper, F
 
+import datetime
+from django.utils.dateparse import parse_date, parse_datetime
+from django.conf import settings
+
 
 class AuditTrail(models.Model):
     """
@@ -134,7 +138,7 @@ class AuditTrigger(models.Model):
     def _dict_to_field_values(cls, data) -> dict:
         """
         Convert hstore dict (all string values) to correct Python types for model fields.
-        For initial version, only attempts numeric and boolean conversion; else leaves as string.
+        Handles numeric, boolean, date, datetime, and other conversions robustly.
         """
         data = cls._ensure_dict(data)
         if not data:
@@ -147,23 +151,69 @@ class AuditTrigger(models.Model):
             except Exception:
                 continue  # skip fields not on the model
 
-            # Only convert if not None
             if value is None:
                 field_values[key] = None
                 continue
 
-            internal_type = field.get_internal_type()
             try:
-                if internal_type in ("IntegerField", "BigIntegerField", "SmallIntegerField", "PositiveIntegerField", "PositiveSmallIntegerField", "AutoField"):
+                # Integer fields
+                if isinstance(field, (
+                    models.IntegerField, models.BigIntegerField, models.SmallIntegerField,
+                    models.PositiveIntegerField, models.PositiveSmallIntegerField, models.AutoField
+                )):
                     field_values[key] = int(value)
-                elif internal_type in ("FloatField", "DecimalField"):
+                # Float/Decimal fields
+                elif isinstance(field, (models.FloatField, models.DecimalField)):
                     field_values[key] = float(value)
-                elif internal_type == "BooleanField":
-                    field_values[key] = value in ("True", "true", "1")
+                # Boolean fields: accept true/false/1/0, raise error for invalid
+                elif isinstance(field, models.BooleanField):
+                    if isinstance(value, bool):
+                        field_values[key] = value
+                    else:
+                        val_str = str(value).strip().lower()
+                        if val_str in ("true", "1"):
+                            field_values[key] = True
+                        elif val_str in ("false", "0"):
+                            field_values[key] = False
+                        else:
+                            raise ValueError(f"Cannot coerce value '{value}' to bool for field '{key}'")
+                # DateField
+                elif isinstance(field, models.DateField) and not isinstance(field, models.DateTimeField):
+                    # Try Django's parse_date
+                    parsed = parse_date(value)
+                    if parsed is not None:
+                        field_values[key] = parsed
+                    else:
+                        # Try formats from settings.DATE_INPUT_FORMATS
+                        for fmt in getattr(settings, 'DATE_INPUT_FORMATS', []):
+                            try:
+                                dt = datetime.datetime.strptime(value, fmt).date()
+                                field_values[key] = dt
+                                break
+                            except Exception:
+                                continue
+                        else:
+                            raise ValueError(f"Cannot parse date '{value}' for field '{key}'")
+                # DateTimeField
+                elif isinstance(field, models.DateTimeField):
+                    parsed = parse_datetime(value)
+                    if parsed is not None:
+                        field_values[key] = parsed
+                    else:
+                        # Try formats from settings.DATETIME_INPUT_FORMATS
+                        for fmt in getattr(settings, 'DATETIME_INPUT_FORMATS', []):
+                            try:
+                                dt = datetime.datetime.strptime(value, fmt)
+                                field_values[key] = dt
+                                break
+                            except Exception:
+                                continue
+                        else:
+                            raise ValueError(f"Cannot parse datetime '{value}' for field '{key}'")
                 else:
                     field_values[key] = value
-            except Exception:
-                field_values[key] = value
+            except Exception as e:
+                field_values[key] = value  # Fallback: store as original string
         return field_values
 
     def restore_from_audit(self, audit_row_id: int, fields: list[str] | None = None, user=None):
@@ -218,7 +268,11 @@ class AuditTrigger(models.Model):
 
         # Load the audit entry if pk is given
         if isinstance(audit_entry, int):
-            audit_row = audit_table.objects.using("default").get(pk=audit_entry)
+            try:
+                audit_row = audit_table.objects.using("default").get(pk=audit_entry)
+            except audit_table.DoesNotExist:
+                # Return None if not found (user can opt to raise custom error here)
+                return None
         else:
             audit_row = audit_entry
 
@@ -260,13 +314,16 @@ class AuditTrigger(models.Model):
             action = "restore"
             obj = None
 
-        # Log the restore action
-        AuditActions.objects.using("default").create(
-            action=action,
-            audit_table=audit_table._meta.db_table,
-            audit_row_id=audit_row.id,
-            user=user,
-        )
+        # Log the restore action with robust error handling
+        try:
+            AuditActions.objects.using("default").create(
+                action=action,
+                audit_table=audit_table._meta.db_table,
+                audit_row_id=audit_row.id,
+                user=user,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to log AuditActions for restore: {e}")
         return obj
 
     @classmethod
