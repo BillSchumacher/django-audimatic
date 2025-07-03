@@ -78,12 +78,65 @@ class AuditTrigger(models.Model):
         triggers = CRUD_TRIGGERS
         audit_table = None
 
+    @staticmethod
+    def _ensure_dict(raw) -> dict:
+        """
+        Ensures that the input is a dict.
+        If it's a string (such as serialized hstore), attempts to parse using regex for key=>value pairs.
+        Falls back to ast.literal_eval for legacy or odd encodings.
+        If input is already a dict, returns it as-is.
+        """
+        import ast
+        import re
+
+        if isinstance(raw, dict):
+            return raw
+        if raw is None:
+            return {}
+
+        # If it's already an HStore-like dict
+        if hasattr(raw, "items"):
+            return dict(raw.items())
+
+        # If it's a string, try regex for key=>value pairs
+        if isinstance(raw, str):
+            # Try regex: key=>value pairs, allowing quoted or unquoted strings
+            # e.g. 'foo=>"bar",baz=>123'
+            pattern = r'(".*?"|\w+)=>(NULL|".*?"|\d+|true|false|\w+)'
+            matches = re.findall(pattern, raw)
+            if matches:
+                result = {}
+                for k, v in matches:
+                    k = k.strip('"') if k.startswith('"') and k.endswith('"') else k
+                    if v == "NULL":
+                        result[k] = None
+                    elif v.startswith('"') and v.endswith('"'):
+                        result[k] = v.strip('"')
+                    elif v in ("true", "false"):
+                        result[k] = v
+                    else:
+                        result[k] = v
+                return result
+            # Fall back to ast.literal_eval as last resort
+            try:
+                parsed = ast.literal_eval(raw)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        # If it's something else, try to coerce to dict.
+        try:
+            return dict(raw)
+        except Exception:
+            return {}
+
     @classmethod
-    def _dict_to_field_values(cls, data: dict) -> dict:
+    def _dict_to_field_values(cls, data) -> dict:
         """
         Convert hstore dict (all string values) to correct Python types for model fields.
         For initial version, only attempts numeric and boolean conversion; else leaves as string.
         """
+        data = cls._ensure_dict(data)
         if not data:
             return {}
 
@@ -112,6 +165,45 @@ class AuditTrigger(models.Model):
             except Exception:
                 field_values[key] = value
         return field_values
+
+    def restore_from_audit(self, audit_row_id: int, fields: list[str] | None = None, user=None):
+        """
+        Restore selected fields of this object from a specific audit row entry.
+        Only updates the provided fields, does not recreate or delete the object.
+        Logs the partial_restore action.
+        """
+        audit_table = self.get_audit_table()
+        if audit_table is None:
+            raise ValueError("Audit table not configured for this model.")
+
+        audit_row = audit_table.objects.get(pk=audit_row_id)
+        before = self._ensure_dict(audit_row.before)
+        after = self._ensure_dict(audit_row.after)
+
+        # Choose snapshot: if audit_row.before['id'] == str(self.id) then use before, else after
+        snapshot = before if before.get("id") == str(self.id) else after
+        snapshot = self._ensure_dict(snapshot)
+
+        available_fields = set(snapshot.keys()) - {"id"}
+        if fields is not None:
+            target_fields = available_fields & set(fields)
+        else:
+            target_fields = available_fields
+
+        for field in target_fields:
+            value_str = snapshot[field]
+            converted = self.__class__._dict_to_field_values({field: value_str})[field]
+            setattr(self, field, converted)
+        self.save()
+
+        # Log the action
+        AuditActions.objects.create(
+            action="partial_restore",
+            audit_table=audit_table._meta.db_table,
+            audit_row_id=audit_row.id,
+            user=user,
+        )
+        return self
 
     @classmethod
     def restore(cls, audit_entry, user=None):
