@@ -139,7 +139,6 @@ class AuditTrigger(models.Model):
             self.save(update_fields=changed_fields)
 
         # Log the restore action in AuditActions
-        from .models import AuditActions  # avoid circular import if any
         AuditActions.objects.create(
             action="restore",
             audit_table=audit_table._meta.db_table,
