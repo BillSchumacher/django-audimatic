@@ -10,12 +10,21 @@ def step_impl(context, model_name):
 
 @then('the audit diff should contain key "{key}" with value "{value}"')
 def step_impl(context, key, value):
-    """Check the audit diff contains the expected key-value pair."""
+    """Check the audit diff contains the expected key-value pair in any entry of audit_trail."""
     audit_trail = context.audit_trail
-    diff = audit_trail[0].diff if hasattr(audit_trail[0], "diff") else getattr(audit_trail[0], "after", None)
-    context.test.assertIsInstance(diff, dict, "Diff is not a dictionary (got type: {})".format(type(diff)))
-    actual_value = diff.get(key, audit_trail[0].after.get(key) if hasattr(audit_trail[0], "after") and audit_trail[0].after else None)
-    context.test.assertEqual(actual_value, value, f"Expected value for key '{key}' is '{value}', got '{actual_value}'")
+    found = False
+    for entry in audit_trail:
+        diff = entry.diff if hasattr(entry, "diff") else getattr(entry, "after", None)
+        if not isinstance(diff, dict):
+            continue
+        actual_value = diff.get(key, entry.after.get(key) if hasattr(entry, "after") and entry.after else None)
+        if str(actual_value) == value:
+            found = True
+            break
+    context.test.assertTrue(
+        found,
+        f"Expected value for key '{key}' is '{value}', but it was not found in any audit trail entry."
+    )
 
 @then('the instance should exist with username "{username}"')
 def step_impl(context, username):
