@@ -71,12 +71,83 @@ CRUD_TRIGGERS = [
 
 
 class AuditTrigger(models.Model):
-    """ """
+    """
+    Abstract base class for models that are audited with triggers.
+    """
 
     class Meta:
         abstract = True
         triggers = CRUD_TRIGGERS
         audit_table = None
+
+    def restore_from_audit(
+        self,
+        audit_row_id: int,
+        fields: list[str] | None = None,
+        *,
+        use_before: bool = True,
+        user=None
+    ):
+        """
+        Restore this object instance fields to historical values as per the specified
+        audit record (row id) in the configured audit_table.
+
+        Args:
+            audit_row_id: PK of the audit row in audit_table.
+            fields: Restrict restore to these fields (default: all except 'id').
+            use_before: Use the 'before' snapshot (default) or 'after'.
+            user: User instance for logging the restore action.
+
+        Returns:
+            self (after restore and save).
+
+        Raises:
+            ValueError: if audit record or snapshot is invalid.
+        """
+        audit_table = self.get_audit_table()
+        if audit_table is None:
+            raise ValueError(f"No audit_table configured for {type(self).__name__}")
+
+        try:
+            audit_row = audit_table.objects.get(pk=audit_row_id)
+        except audit_table.DoesNotExist:
+            raise ValueError(f"Audit row with id={audit_row_id} does not exist.")
+
+        snapshot = audit_row.before if use_before else audit_row.after
+        if not snapshot:
+            raise ValueError("Selected snapshot is empty.")
+
+        # Determine fields to restore
+        available_fields = set(snapshot.keys()) - {"id"}
+        restore_fields = available_fields if fields is None else set(fields) & available_fields
+        if not restore_fields:
+            raise ValueError("No fields to restore (fields argument filtered everything out).")
+
+        # Set fields using to_python for proper casting
+        changed_fields = []
+        for field_name in restore_fields:
+            if not hasattr(self, field_name):
+                continue  # skip fields not present on model
+            model_field = self._meta.get_field(field_name)
+            value = snapshot[field_name]
+            # Handle None (hstore stores None as None, not string)
+            python_value = model_field.to_python(value)
+            setattr(self, field_name, python_value)
+            changed_fields.append(field_name)
+
+        if changed_fields:
+            self.save(update_fields=changed_fields)
+
+        # Log the restore action in AuditActions
+        from .models import AuditActions  # avoid circular import if any
+        AuditActions.objects.create(
+            action="restore",
+            audit_table=audit_table._meta.db_table,
+            audit_row_id=audit_row_id,
+            user=user,
+        )
+
+        return self
 
     @classmethod
     def check(cls, **kwargs):
