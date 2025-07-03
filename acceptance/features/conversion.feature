@@ -14,3 +14,18 @@ Feature: Conversion utility
     Given a "CustomUser" instance with username "alice" exists
     When I attempt to restore using a non-existent audit id 999999
     Then the restore result should be None
+
+  Scenario: Boolean true string is converted to True
+    Given a conversion model is defined
+    When I convert the string "True" for a boolean field
+    Then the bool_field value should be True
+
+  Scenario: Unknown field is ignored in conversion
+    Given a conversion model is defined
+    When I convert a dictionary with an unknown field
+    Then the unknown field should be ignored in the result
+
+  Scenario: Custom date format is parsed when fallback is provided
+    Given a conversion model is defined
+    When I convert a date string with custom format "20/10/2023"
+    Then the date_field should be converted to the correct date
