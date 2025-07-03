@@ -11,8 +11,8 @@ def step_impl(context, model_name):
 def step_impl(context, key, value):
     """Check the audit diff contains the expected key-value pair."""
     audit_trail = context.audit_trail
-    diff = audit_trail[0].diff if hasattr(audit_trail[0], "diff") else audit_trail[0].after_data
-    context.test.assertIsInstance(diff, dict, "Diff is not a dictionary")
+    diff = audit_trail[0].diff if hasattr(audit_trail[0], "diff") else getattr(audit_trail[0], "after", None)
+    context.test.assertIsInstance(diff, dict, "Diff is not a dictionary (got type: {})".format(type(diff)))
     context.test.assertIn(key, diff, f"Key '{key}' not in diff: {diff}")
     context.test.assertEqual(diff.get(key), value, f"Expected diff[{key}] == '{value}', got {diff.get(key)}")
 
