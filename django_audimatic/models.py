@@ -79,6 +79,105 @@ class AuditTrigger(models.Model):
         audit_table = None
 
     @classmethod
+    def _dict_to_field_values(cls, data: dict) -> dict:
+        """
+        Convert hstore dict (all string values) to correct Python types for model fields.
+        For initial version, only attempts numeric and boolean conversion; else leaves as string.
+        """
+        if not data:
+            return {}
+
+        field_values = {}
+        for key, value in data.items():
+            try:
+                field = cls._meta.get_field(key)
+            except Exception:
+                continue  # skip fields not on the model
+
+            # Only convert if not None
+            if value is None:
+                field_values[key] = None
+                continue
+
+            internal_type = field.get_internal_type()
+            try:
+                if internal_type in ("IntegerField", "BigIntegerField", "SmallIntegerField", "PositiveIntegerField", "PositiveSmallIntegerField", "AutoField"):
+                    field_values[key] = int(value)
+                elif internal_type in ("FloatField", "DecimalField"):
+                    field_values[key] = float(value)
+                elif internal_type == "BooleanField":
+                    field_values[key] = value in ("True", "true", "1")
+                else:
+                    field_values[key] = value
+            except Exception:
+                field_values[key] = value
+        return field_values
+
+    @classmethod
+    def restore(cls, audit_entry, user=None):
+        """
+        Restore the object state to the state captured by the audit_entry.
+        If audit_entry is an int, loads from audit table.
+        Returns the affected object (or None if not applicable).
+        """
+        audit_table = cls.get_audit_table()
+        if audit_table is None:
+            raise ValueError("Audit table not configured for this model.")
+
+        # Load the audit entry if pk is given
+        if isinstance(audit_entry, int):
+            audit_row = audit_table.objects.using("default").get(pk=audit_entry)
+        else:
+            audit_row = audit_entry
+
+        before = dict(audit_row.before or {})
+        after = dict(audit_row.after or {})
+
+        # Determine type of audit event
+        before_has_id = before.get("id") is not None
+        after_has_id = after.get("id") is not None
+
+        obj = None
+
+        if before_has_id and not after_has_id:
+            # Deletion: recreate object from before
+            field_values = cls._dict_to_field_values(before)
+            obj = cls.objects.using("default").create(**field_values)
+            action = "restore"
+        elif not before_has_id and after_has_id:
+            # Insertion: remove the inserted object
+            try:
+                obj = cls.objects.using("default").get(pk=after["id"])
+                obj.delete()
+            except cls.DoesNotExist:
+                obj = None
+            action = "restore"
+        elif before_has_id and after_has_id:
+            # Update: set fields to 'before' values
+            try:
+                obj = cls.objects.using("default").get(pk=before["id"])
+                field_values = cls._dict_to_field_values(before)
+                for k, v in field_values.items():
+                    setattr(obj, k, v)
+                obj.save()
+            except cls.DoesNotExist:
+                obj = None
+            action = "restore"
+        else:
+            # Unrecognized or empty entry
+            action = "restore"
+            obj = None
+
+        # Log the restore action
+        AuditActions.objects.using("default").create(
+            action=action,
+            audit_table=audit_table._meta.db_table,
+            audit_row_id=audit_row.id,
+            user=user,
+        )
+        return obj
+
+    @classmethod
     def check(cls, **kwargs):
         """
 
