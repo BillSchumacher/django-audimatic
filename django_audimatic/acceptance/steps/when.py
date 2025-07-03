@@ -6,10 +6,11 @@ from testapp.models import CustomUser, UserAuditTrail
 def step_impl(context, model_name, username):
     """Change username, save, and create audit entry."""
     instance = context.instance
-    before_data = {"username": instance.username}
+    old_username = instance.username
+    before_data = {"id": str(instance.id), "username": old_username}
     instance.username = username
     instance.save()
-    after_data = {"username": username}
+    after_data = {"id": str(instance.id), "username": username}
     # Create audit entry
     audit_entry = UserAuditTrail.objects.create(
         user=instance,
@@ -30,14 +31,14 @@ def step_impl(context):
 def step_impl(context):
     """Delete instance and add audit entry for deletion."""
     instance = context.instance
-    before_data = {"username": instance.username}
+    before_data = {"id": str(instance.id), "username": instance.username}
     instance.delete()
     # Create audit entry for deletion
     audit_entry = UserAuditTrail.objects.create(
         user_id=instance.pk,
         action='delete',
         before_data=before_data,
-        after_data=None,
+        after_data={},
     )
     context.audit_entry = audit_entry
     context.before_data = before_data

@@ -12,6 +12,7 @@ def step_impl(context, model_name, username):
     instance = CustomUser.objects.create(username=username)
     context.instance = instance
     context.before_data = {"username": username}
+    # No assertions here, but context.test is available for future asserts
 
 @given('a model missing an audit table is defined')
 def step_impl(context):
