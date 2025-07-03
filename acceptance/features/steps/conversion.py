@@ -98,30 +98,34 @@ def then_unknown_field_ignored(context):
     test.assertIn('int_field', cv)
     test.assertEqual(cv['int_field'], 1)
 
-@when('I convert a date string with custom format "20/10/2023"')
-def when_convert_custom_date_format(context):
-    # Try both default and fallback parsing
-    # We'll simulate the fallback by providing a custom parse function
-    # and monkeypatching the model's _dict_to_field_values if possible.
-    raw = {'date_field': '20/10/2023'}
-    # If _dict_to_field_values supports a 'fallback_formats' or similar arg, use it.
-    # Otherwise, we can simulate with a patched method.
-    # Assume the helper tries %Y-%m-%d by default and falls back to %d/%m/%Y.
-    # We'll use the fallback manually here for testing.
-    from django_audimatic.models.helpers import _dict_to_field_values as real_helper
+from django.test import override_settings
 
-    # Patch for test to allow fallback
-    fallback_formats = {'date_field': ['%d/%m/%Y']}
-    context.converted_custom_date = real_helper(
-        raw,
-        ConversionModel,
-        fallback_formats=fallback_formats
-    )
+@when('I convert a date string with custom format "20/10/2023"')
+def when_convert_custom_date_format_override(context):
+    raw = {'date_field': '20/10/2023'}
+    # Patch the DATE_INPUT_FORMATS to include the custom format
+    with override_settings(DATE_INPUT_FORMATS=['%d/%m/%Y', '%Y-%m-%d']):
+        context.converted_custom_date = context.conversion_model._dict_to_field_values(raw)
 
 @then('the date_field should be converted to the correct date')
-def then_custom_date_converted(context):
+def then_custom_date_converted_override(context):
     test = context.test
     cv = context.converted_custom_date
     test.assertIn('date_field', cv)
     test.assertIsInstance(cv['date_field'], date)
     test.assertEqual(cv['date_field'], date(2023, 10, 20))
+
+@when('I convert a datetime string with custom format "20/10/2023 16:31:22"')
+def when_convert_custom_datetime_format_override(context):
+    raw = {'dt_field': '20/10/2023 16:31:22'}
+    # Patch the DATETIME_INPUT_FORMATS to include the custom format
+    with override_settings(DATETIME_INPUT_FORMATS=['%d/%m/%Y %H:%M:%S', '%Y-%m-%d %H:%M:%S']):
+        context.converted_custom_datetime = context.conversion_model._dict_to_field_values(raw)
+
+@then('the dt_field should be converted to the correct datetime')
+def then_custom_datetime_converted_override(context):
+    test = context.test
+    cv = context.converted_custom_datetime
+    test.assertIn('dt_field', cv)
+    test.assertIsInstance(cv['dt_field'], datetime)
+    test.assertEqual(cv['dt_field'], datetime(2023, 10, 20, 16, 31, 22))

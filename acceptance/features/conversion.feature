@@ -29,3 +29,8 @@ Feature: Conversion utility
     Given a conversion model is defined
     When I convert a date string with custom format "20/10/2023"
     Then the date_field should be converted to the correct date
+
+  Scenario: Custom datetime format is parsed when fallback is provided
+    Given a conversion model is defined
+    When I convert a datetime string with custom format "20/10/2023 16:31:22"
+    Then the dt_field should be converted to the correct datetime
