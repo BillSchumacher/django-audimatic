@@ -1,6 +1,11 @@
-# Created by billschumacher at 9/6/2023
-Feature: # Enter feature name here
-  # Enter feature description here
+Feature: AuditTrigger system checks
 
-  Scenario: # Enter scenario name here
-    # Enter steps here
+  Scenario: Model missing audit table raises error
+    Given a model missing an audit table is defined
+    When I run system checks on that model
+    Then an error "django_audimatic.E001" should be reported
+
+  Scenario: Model missing triggers raises error
+    Given a model missing triggers is defined
+    When I run system checks on that model
+    Then an error "django_audimatic.E002" should be reported
