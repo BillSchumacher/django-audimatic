@@ -7,19 +7,17 @@ def step_impl(context, model_name, username):
     """Change username, save, and create audit entry."""
     instance = context.instance
     old_username = instance.username
-    before_data = {"id": str(instance.id), "username": old_username}
+    before = {"id": str(instance.id), "username": old_username}
     instance.username = username
     instance.save()
-    after_data = {"id": str(instance.id), "username": username}
+    after = {"id": str(instance.id), "username": username}
     # Create audit entry
     audit_entry = UserAuditTrail.objects.create(
-        user=instance,
-        action='change',
-        before_data=before_data,
-        after_data=after_data,
+        before=before,
+        after=after,
     )
     context.audit_entry = audit_entry
-    context.after_data = after_data
+    context.after = after
 
 @when("I retrieve the audit trail for the instance")
 def step_impl(context):
@@ -31,17 +29,15 @@ def step_impl(context):
 def step_impl(context):
     """Delete instance and add audit entry for deletion."""
     instance = context.instance
-    before_data = {"id": str(instance.id), "username": instance.username}
+    before = {"id": str(instance.id), "username": instance.username}
     instance.delete()
     # Create audit entry for deletion
     audit_entry = UserAuditTrail.objects.create(
-        user_id=instance.pk,
-        action='delete',
-        before_data=before_data,
-        after_data={},
+        before=before,
+        after={},
     )
     context.audit_entry = audit_entry
-    context.before_data = before_data
+    context.before = before
 
 @when("I restore the instance from the last audit entry")
 def step_impl(context):
