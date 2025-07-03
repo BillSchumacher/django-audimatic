@@ -9,7 +9,7 @@ def _to_hstore(data: dict) -> str:
     return ",".join([f'"{k}"=>"{v}"' for k, v in data.items()])
 
 @when('I change the "{model_name}" username to "{username}" and create an audit entry for the change')
-def step_impl(context, model_name, username):
+def when_change_username(context, model_name, username):
     """Change username, save, and create audit entry."""
     instance = context.instance
     old_username = instance.username
@@ -26,14 +26,14 @@ def step_impl(context, model_name, username):
     context.after = after
 
 @when("I retrieve the audit trail for the instance")
-def step_impl(context):
+def when_retrieve_audit_trail(context):
     """Retrieve audit trail for the instance."""
     instance = context.instance
     context.audit_trail = instance.get_audit_trail()
 
 @when("I delete the instance and create an audit entry for the deletion")
 @given("I delete the instance and create an audit entry for the deletion")
-def step_impl(context):
+def given_when_delete_instance(context):
     """Delete instance and add audit entry for deletion."""
     instance = context.instance
     before = {"id": str(instance.id), "username": instance.username}
@@ -48,7 +48,7 @@ def step_impl(context):
 
 @when("I restore the instance from the last audit entry")
 @given("I restore the instance from the last audit entry")
-def step_impl(context):
+def when_restore_instance(context):
     """Restore the instance from the last audit entry."""
     audit_entry = getattr(context, "audit_entry", None)
     if not audit_entry and hasattr(context, "audit_trail"):
@@ -57,6 +57,6 @@ def step_impl(context):
     context.restored = CustomUser.restore(audit_entry)
 
 @when("I run system checks on that model")
-def step_impl(context):
+def when_run_system_checks(context):
     """Run system checks on the bad model."""
     context.errors = context.bad_model.check()

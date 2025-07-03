@@ -16,11 +16,11 @@ class ConversionModel(AuditTrigger):
         audit_table = None
 
 @given('a conversion model is defined')
-def step_impl(context):
+def given_conversion_model(context):
     context.conversion_model = ConversionModel
 
 @when('I convert a representative set of string values')
-def step_impl(context):
+def when_convert_values(context):
     raw = {
         'int_field': '42',
         'float_field': '3.14',
@@ -32,7 +32,7 @@ def step_impl(context):
     context.converted = context.conversion_model._dict_to_field_values(raw)
 
 @then('the returned values should match expected Python types')
-def step_impl(context):
+def then_returned_types(context):
     cv = context.converted
     test = context.test
     test.assertIsInstance(cv['int_field'], int)
@@ -46,7 +46,7 @@ def step_impl(context):
     test.assertIsInstance(cv['dt_field'], datetime)
 
 @when('I attempt to convert an invalid boolean string')
-def step_impl(context):
+def when_convert_invalid_bool(context):
     raw = {'bool_field': 'notbool'}
     context.error = None
     try:
@@ -55,14 +55,14 @@ def step_impl(context):
         context.error = e
 
 @then('a ValueError should be raised')
-def step_impl(context):
+def then_valueerror(context):
     context.test.assertIsNotNone(context.error)
 
 @when('I attempt to restore using a non-existent audit id {audit_id:d}')
-def step_impl(context, audit_id):
+def when_restore_nonexistent_id(context, audit_id):
     from testapp.models import CustomUser
     context.restore_result = CustomUser.restore(audit_id)
 
 @then('the restore result should be None')
-def step_impl(context):
+def then_restore_none(context):
     context.test.assertIsNone(context.restore_result)

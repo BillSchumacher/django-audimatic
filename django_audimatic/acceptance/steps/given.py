@@ -3,7 +3,7 @@ from behave import given
 from testapp.models import CustomUser
 
 @given('a "{model_name}" instance with username "{username}" exists')
-def step_impl(context, model_name, username):
+def given_create_instance(context, model_name, username):
     """Create an instance with the given username and store in context."""
     if not hasattr(context, "models"):
         context.models = {}
@@ -15,7 +15,7 @@ def step_impl(context, model_name, username):
     # No assertions here, but context.test is available for future asserts
 
 @given('a model missing an audit table is defined')
-def step_impl(context):
+def given_define_missing_audit_table(context):
     """Simulate defining a model missing an audit table."""
     class BadModel:
         @staticmethod
@@ -25,7 +25,7 @@ def step_impl(context):
     context.bad_model = BadModel
 
 @given('a model missing triggers is defined')
-def step_impl(context):
+def given_define_missing_triggers(context):
     """Simulate defining a model missing triggers."""
     class BadModel:
         @staticmethod
