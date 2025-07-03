@@ -94,3 +94,72 @@ class AuditRestoreTests(TestCase):
         # AuditActions should be created
         action = AuditActions.objects.latest('id')
         self.assertEqual(action.audit_row_id, self.audit_entry_insert.id)
+
+# --- Additional Coverage ---
+
+class AuditTrailDiffAnnotationTests(TestCase):
+    def test_get_audit_trail_diff_annotation(self):
+        # Create initial user
+        user = User.objects.create(username="alice", email="alice@example.com", is_active=True)
+        # Simulate audit entry with username changed from "alice" to "bob"
+        audit_entry = UserAuditTrail.objects.create(
+            before={
+                "id": str(user.id),
+                "username": "alice",
+                "email": "alice@example.com",
+                "is_active": "True",
+            },
+            after={
+                "id": str(user.id),
+                "username": "bob",
+                "email": "alice@example.com",
+                "is_active": "True",
+            }
+        )
+        # Fetch audit trail and check diff
+        qs = user.get_audit_trail()
+        self.assertEqual(qs.count(), 1)
+        diff = qs[0].diff  # Should be a dict with key "username": "bob"
+        self.assertIsInstance(diff, dict)
+        self.assertIn("username", diff)
+        self.assertEqual(diff["username"], "bob")
+
+from django.core.checks import Error
+
+class SystemCheckErrorTests(TestCase):
+    def test_missing_audit_table_error(self):
+        # Define AuditTrigger subclass without audit_table
+        class BadModelMissingAuditTable(AuditTrigger):
+            field = models.CharField(max_length=10)
+            class Meta(AuditTrigger.Meta):
+                app_label = "django_audimatic_test"
+                # audit_table intentionally omitted
+
+        errors = BadModelMissingAuditTable.check()
+        error_ids = [e.id for e in errors]
+        self.assertIn("django_audimatic.E001", error_ids)
+        # Optional: Check error message content
+        for e in errors:
+            if e.id == "django_audimatic.E001":
+                self.assertIn("audit_table", e.msg.lower())
+
+    def test_missing_triggers_error(self):
+        # Define valid AuditTrail subclass
+        class ValidTrail(AuditTrail):
+            pass
+
+        # Define AuditTrigger subclass with triggers intentionally set empty
+        class BadModelMissingTriggers(AuditTrigger):
+            field = models.CharField(max_length=10)
+            class Meta(AuditTrigger.Meta):
+                audit_table = ValidTrail
+                triggers = []  # intentionally empty
+                app_label = "django_audimatic_test"
+
+        errors = BadModelMissingTriggers.check()
+        error_ids = [e.id for e in errors]
+        self.assertIn("django_audimatic.E002", error_ids)
+        # Optional: Check error message content
+        for e in errors:
+            if e.id == "django_audimatic.E002":
+                self.assertIn("triggers", e.msg.lower())
