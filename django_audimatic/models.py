@@ -100,9 +100,9 @@ class AuditTrigger(models.Model):
 
         # If it's a string, try regex for key=>value pairs
         if isinstance(raw, str):
-            # Try regex: key=>value pairs, allowing quoted or unquoted strings
-            # e.g. 'foo=>"bar",baz=>123'
-            pattern = r'(".*?"|\w+)=>(NULL|".*?"|\d+|true|false|\w+)'
+            # Improved regex: key=>value pairs, allowing quoted/unquoted, optional spaces, robust comma delimiting
+            # e.g. 'foo => "bar", "baz"=>123'
+            pattern = r'\s*(".*?"|\w+)\s*=>\s*(NULL|".*?"|\d+|true|false|\w+)\s*(?:,|$)'
             matches = re.findall(pattern, raw)
             if matches:
                 result = {}

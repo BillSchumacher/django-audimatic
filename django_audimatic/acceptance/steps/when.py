@@ -2,6 +2,12 @@
 from behave import when, given
 from testapp.models import CustomUser, UserAuditTrail
 
+def _to_hstore(data: dict) -> str:
+    """Serializes a dict to a Postgres hstore string."""
+    if not data:
+        return ""
+    return ",".join([f'"{k}"=>"{v}"' for k, v in data.items()])
+
 @when('I change the "{model_name}" username to "{username}" and create an audit entry for the change')
 def step_impl(context, model_name, username):
     """Change username, save, and create audit entry."""
@@ -11,10 +17,10 @@ def step_impl(context, model_name, username):
     instance.username = username
     instance.save()
     after = {"id": str(instance.id), "username": username}
-    # Create audit entry
+    # Create audit entry with hstore strings
     audit_entry = UserAuditTrail.objects.create(
-        before=before,
-        after=after,
+        before=_to_hstore(before),
+        after=_to_hstore(after),
     )
     context.audit_entry = audit_entry
     context.after = after
@@ -32,10 +38,10 @@ def step_impl(context):
     instance = context.instance
     before = {"id": str(instance.id), "username": instance.username}
     instance.delete()
-    # Create audit entry for deletion
+    # Create audit entry for deletion with after=''
     audit_entry = UserAuditTrail.objects.create(
-        before=before,
-        after={},
+        before=_to_hstore(before),
+        after='',
     )
     context.audit_entry = audit_entry
     context.before = before
