@@ -222,8 +222,8 @@ class AuditTrigger(models.Model):
         else:
             audit_row = audit_entry
 
-        before = dict(audit_row.before or {})
-        after = dict(audit_row.after or {})
+        before = cls._ensure_dict(audit_row.before)
+        after = cls._ensure_dict(audit_row.after)
 
         # Determine type of audit event
         before_has_id = before.get("id") is not None
