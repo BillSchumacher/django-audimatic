@@ -1,6 +1,7 @@
 """Then steps."""
 from behave import then
 from testapp.models import CustomUser
+from django_audimatic.models import AuditTrigger
 
 @then('the "{model_name}" model should have an audit trail')
 def step_impl(context, model_name):
@@ -15,9 +16,8 @@ def step_impl(context, key, value):
     found = False
     for entry in audit_trail:
         diff = entry.diff if hasattr(entry, "diff") else getattr(entry, "after", None)
-        if not isinstance(diff, dict):
-            continue
-        actual_value = diff.get(key, entry.after.get(key) if hasattr(entry, "after") and entry.after else None)
+        after_dict = AuditTrigger._ensure_dict(entry.after) if hasattr(entry, "after") else {}
+        actual_value = diff.get(key) if isinstance(diff, dict) and key in diff else after_dict.get(key)
         if str(actual_value) == value:
             found = True
             break
