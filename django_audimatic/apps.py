@@ -3,6 +3,7 @@ from collections import OrderedDict
 from django.apps import AppConfig
 from django.db.migrations import state
 from django.db.models import options
+from django.db.backends.signals import connection_created
 
 if "triggers" not in state.DEFAULT_NAMES:  # pragma: no branch
     state.DEFAULT_NAMES = tuple(state.DEFAULT_NAMES) + ("triggers",)
@@ -57,17 +58,23 @@ class DjangoAudimaticConfig(AppConfig):
 
         patch_migrations()
 
-        # Disable database test serialization to avoid named cursor usage in test DB creation
-        from django.conf import settings
+        # Set DB defaults so new connections inherit correct settings
         for db_conf in settings.DATABASES.values():
             db_conf.setdefault('TEST', {})['SERIALIZE'] = False
+            db_conf['DISABLE_SERVER_SIDE_CURSORS'] = True
 
-        # Patch Django DB connections to avoid server-side cursors (chunked reads)
+        # Helper to patch connections (existing & new)
+        def _configure_connection(sender, connection, **kwargs):  # noqa: D401
+            # Disable server-side cursors & chunked reads, and disable test serialization
+            if hasattr(connection.features, "can_use_chunked_reads"):
+                connection.features.can_use_chunked_reads = False
+            connection.settings_dict.setdefault("TEST", {})["SERIALIZE"] = False
+            connection.settings_dict["DISABLE_SERVER_SIDE_CURSORS"] = True
+
         from django.db import connections
         for conn in connections.all():
-            # Avoid server-side cursors during iterators used by serialization
-            if hasattr(conn.features, 'can_use_chunked_reads'):
-                conn.features.can_use_chunked_reads = False
+            _configure_connection(None, conn)
+        connection_created.connect(_configure_connection, dispatch_uid="audimatic_connection_cfg", weak=False)
 
         dirty = False
 

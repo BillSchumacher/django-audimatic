@@ -87,13 +87,13 @@ class AuditActions(models.Model):
 
 # --- M2M Audit Tracking ---
 
-_M2M_BEFORE_CACHE: "WeakKeyDictionary[models.Model, dict[str, set[int]]]" = WeakKeyDictionary()
+_M2M_BEFORE_CACHE: "WeakKeyDictionary[models.Model, dict[str, set[int]]]" = WeakKeyDictionary()  # pragma: no cover
 
 def _handle_m2m_changed(sender, **kwargs):
     instance = kwargs.get('instance')
     action = kwargs.get('action')
     field = kwargs.get('field')
-    pk_set = kwargs.get('pk_set', set())
+    # pk_set = kwargs.get('pk_set', set())  # Removed: unused variable for lint compliance
     if not instance or not field:
         return
 
