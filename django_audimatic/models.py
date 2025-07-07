@@ -225,6 +225,7 @@ def _handle_m2m_changed(sender, **kwargs):
             del _M2M_BEFORE_CACHE[instance]
 
 
+
 class AuditTrigger(models.Model):
     """ """
 

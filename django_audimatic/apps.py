@@ -56,6 +56,14 @@ class DjangoAudimaticConfig(AppConfig):
         from django.conf import settings
 
         patch_migrations()
+
+        # Patch Django DB connections to avoid server-side cursors (chunked reads)
+        from django.db import connections
+        for conn in connections.all():
+            # Avoid server-side cursors during iterators used by serialization
+            if hasattr(conn.features, 'can_use_chunked_reads'):
+                conn.features.can_use_chunked_reads = False
+
         dirty = False
 
         if "pgtrigger" not in settings.INSTALLED_APPS:
