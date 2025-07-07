@@ -47,6 +47,18 @@ Usage
     class CustomUser(AbstractUser, AuditTrigger):
         class Meta(AuditTrigger.Meta):
             audit_table = UserAuditTrail
+
+    # To disable automatic ManyToMany tracking on a model:
+    class SomeModel(AuditTrigger):
+        class Meta(AuditTrigger.Meta):
+            audit_table = SomeModelAuditTrail
+            audit_options = {'track_m2m': False}  # disables m2m tracking for this model
+
+    # To enable (default) m2m tracking:
+    class AnotherModel(AuditTrigger):
+        class Meta(AuditTrigger.Meta):
+            audit_table = AnotherModelAuditTrail
+            audit_options = {'track_m2m': True}  # this is the default, can be omitted
     ```
 
 3. Register AdminModels
