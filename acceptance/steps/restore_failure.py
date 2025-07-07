@@ -5,20 +5,33 @@ from testapp.models import CustomUser
 
 @given("a failing restore operation is set up")
 def given_failing_restore_operation(context):
-    # Create a CustomUser and an audit entry (stub/mock as needed)
+    # Create a CustomUser and a real audit entry for restore
     context.user = CustomUser.objects.create(username="failrestore")
-    context.audit_entry = None  # You would set up an audit entry here as needed
+    # Simulate an audit entry; this should mimic your model's audit entry creation
+    from django_audimatic.models import AuditActions
+    context.audit_entry = AuditActions.objects.create(
+        action='restore',
+        content_object=context.user,
+        changes={},
+        user=None
+    )
 
 @when("I attempt to restore with a logging failure")
 def when_restore_with_logging_failure(context):
-    # Monkeypatch AuditActions.objects.create to raise a RuntimeError
+    # Patch the audit logging method used during restore to raise a RuntimeError
     from django_audimatic.models import AuditActions
 
     def fail_logging(*args, **kwargs):
         raise RuntimeError("Logging failed during restore")
 
-    # Patch the create method on AuditActions.objects
-    patcher = patch.object(AuditActions.objects, "create", side_effect=fail_logging)
+    # Try patching a likely audit logging method; fallback to objects.create if needed
+    patch_target = None
+    if hasattr(AuditActions, "log_restore_action"):
+        patch_target = "django_audimatic.models.AuditActions.log_restore_action"
+    else:
+        patch_target = "django_audimatic.models.AuditActions.objects.create"
+
+    patcher = patch(patch_target, side_effect=fail_logging)
     context._patcher = patcher
     patcher.start()
 

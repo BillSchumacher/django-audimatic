@@ -20,6 +20,21 @@ Feature: Conversion utility
     When I convert the string "True" for a boolean field
     Then the bool_field value should be True
 
+  Scenario: Boolean false string is converted to False
+    Given a conversion model is defined
+    When I convert the string "False" for a boolean field
+    Then the bool_field value should be False
+
+  Scenario: Boolean object is converted as raw value
+    Given a conversion model is defined
+    When I convert the boolean object True for a boolean field
+    Then the bool_field value should be True
+
+  Scenario: Unknown value string is handled gracefully
+    Given a conversion model is defined
+    When I convert an unknown string "potato" for a boolean field
+    Then a ValueError should be raised
+
   Scenario: Unknown field is ignored in conversion
     Given a conversion model is defined
     When I convert a dictionary with an unknown field
