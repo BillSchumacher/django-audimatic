@@ -10,6 +10,10 @@ from django.core import checks
 from django.db import models
 from django.db.models import ExpressionWrapper, F
 
+import datetime
+from django.utils.dateparse import parse_date, parse_datetime
+from django.conf import settings
+
 
 class AuditTrail(models.Model):
     """
@@ -77,6 +81,250 @@ class AuditTrigger(models.Model):
         abstract = True
         triggers = CRUD_TRIGGERS
         audit_table = None
+
+    @staticmethod
+    def _ensure_dict(raw) -> dict:
+        """
+        Ensures that the input is a dict.
+        If it's a string (such as serialized hstore), attempts to parse using regex for key=>value pairs.
+        Falls back to ast.literal_eval for legacy or odd encodings.
+        If input is already a dict, returns it as-is.
+        """
+        import ast
+        import re
+
+        if isinstance(raw, dict):
+            return raw
+        if raw is None:
+            return {}
+
+        # If it's already an HStore-like dict
+        if hasattr(raw, "items"):
+            return dict(raw.items())
+
+        # If it's a string, try regex for key=>value pairs
+        if isinstance(raw, str):
+            # Improved regex: key=>value pairs, allowing quoted/unquoted, optional spaces, robust comma delimiting
+            # e.g. 'foo => "bar", "baz"=>123'
+            pattern = r'\s*(".*?"|\w+)\s*=>\s*(NULL|".*?"|\d+|true|false|\w+)\s*(?:,|$)'
+            matches = re.findall(pattern, raw)
+            if matches:
+                result = {}
+                for k, v in matches:
+                    k = k.strip('"') if k.startswith('"') and k.endswith('"') else k
+                    if v == "NULL":
+                        result[k] = None
+                    elif v.startswith('"') and v.endswith('"'):
+                        result[k] = v.strip('"')
+                    elif v in ("true", "false"):
+                        result[k] = v
+                    else:
+                        result[k] = v
+                return result
+            # Fall back to ast.literal_eval as last resort
+            try:
+                parsed = ast.literal_eval(raw)
+                if isinstance(parsed, dict):
+                    return parsed
+            except Exception:
+                pass
+        # If it's something else, try to coerce to dict.
+        try:
+            return dict(raw)
+        except Exception:
+            return {}
+
+    @classmethod
+    def _dict_to_field_values(cls, data) -> dict:
+        """
+        Convert hstore dict (all string values) to correct Python types for model fields.
+        Handles numeric, boolean, date, datetime, and other conversions robustly.
+        """
+        data = cls._ensure_dict(data)
+        if not data:
+            return {}
+
+        field_values = {}
+        for key, value in data.items():
+            try:
+                field = cls._meta.get_field(key)
+            except Exception:
+                continue  # skip fields not on the model
+
+            if value is None:
+                field_values[key] = None
+                continue
+
+            try:
+                # Integer fields
+                if isinstance(field, (
+                    models.IntegerField, models.BigIntegerField, models.SmallIntegerField,
+                    models.PositiveIntegerField, models.PositiveSmallIntegerField, models.AutoField
+                )):
+                    field_values[key] = int(value)
+                # Float/Decimal fields
+                elif isinstance(field, (models.FloatField, models.DecimalField)):
+                    field_values[key] = float(value)
+                # Boolean fields: accept true/false/1/0, raise error for invalid
+                elif isinstance(field, models.BooleanField):
+                    if isinstance(value, bool):
+                        field_values[key] = value
+                    else:
+                        val_str = str(value).strip().lower()
+                        if val_str in ("true", "1"):
+                            field_values[key] = True
+                        elif val_str in ("false", "0"):
+                            field_values[key] = False
+                        else:
+                            raise ValueError(f"Cannot coerce value '{value}' to bool for field '{key}'")
+                # DateField
+                elif isinstance(field, models.DateField) and not isinstance(field, models.DateTimeField):
+                    # Try Django's parse_date
+                    parsed = parse_date(value)
+                    if parsed is not None:
+                        field_values[key] = parsed
+                    else:
+                        # Try formats from settings.DATE_INPUT_FORMATS
+                        for fmt in getattr(settings, 'DATE_INPUT_FORMATS', []):
+                            try:
+                                dt = datetime.datetime.strptime(value, fmt).date()
+                                field_values[key] = dt
+                                break
+                            except Exception:
+                                continue
+                        else:
+                            raise ValueError(f"Cannot parse date '{value}' for field '{key}'")
+                # DateTimeField
+                elif isinstance(field, models.DateTimeField):
+                    parsed = parse_datetime(value)
+                    if parsed is not None:
+                        field_values[key] = parsed
+                    else:
+                        # Try formats from settings.DATETIME_INPUT_FORMATS
+                        for fmt in getattr(settings, 'DATETIME_INPUT_FORMATS', []):
+                            try:
+                                dt = datetime.datetime.strptime(value, fmt)
+                                field_values[key] = dt
+                                break
+                            except Exception:
+                                continue
+                        else:
+                            raise ValueError(f"Cannot parse datetime '{value}' for field '{key}'")
+                else:
+                    field_values[key] = value
+            except Exception as e:
+                field_values[key] = value  # Fallback: store as original string
+        return field_values
+
+    def restore_from_audit(self, audit_row_id: int, fields: list[str] | None = None, user=None):
+        """
+        Restore selected fields of this object from a specific audit row entry.
+        Only updates the provided fields, does not recreate or delete the object.
+        Logs the partial_restore action.
+        """
+        audit_table = self.get_audit_table()
+        if audit_table is None:
+            raise ValueError("Audit table not configured for this model.")
+
+        audit_row = audit_table.objects.get(pk=audit_row_id)
+        before = self._ensure_dict(audit_row.before)
+        after = self._ensure_dict(audit_row.after)
+
+        # Choose snapshot: if audit_row.before['id'] == str(self.id) then use before, else after
+        snapshot = before if before.get("id") == str(self.id) else after
+        snapshot = self._ensure_dict(snapshot)
+
+        available_fields = set(snapshot.keys()) - {"id"}
+        if fields is not None:
+            target_fields = available_fields & set(fields)
+        else:
+            target_fields = available_fields
+
+        for field in target_fields:
+            value_str = snapshot[field]
+            converted = self.__class__._dict_to_field_values({field: value_str})[field]
+            setattr(self, field, converted)
+        self.save()
+
+        # Log the action
+        AuditActions.objects.create(
+            action="partial_restore",
+            audit_table=audit_table._meta.db_table,
+            audit_row_id=audit_row.id,
+            user=user,
+        )
+        return self
+
+    @classmethod
+    def restore(cls, audit_entry, user=None):
+        """
+        Restore the object state to the state captured by the audit_entry.
+        If audit_entry is an int, loads from audit table.
+        Returns the affected object (or None if not applicable).
+        """
+        audit_table = cls.get_audit_table()
+        if audit_table is None:
+            raise ValueError("Audit table not configured for this model.")
+
+        # Load the audit entry if pk is given
+        if isinstance(audit_entry, int):
+            try:
+                audit_row = audit_table.objects.using("default").get(pk=audit_entry)
+            except audit_table.DoesNotExist:
+                # Return None if not found (user can opt to raise custom error here)
+                return None
+        else:
+            audit_row = audit_entry
+
+        before = cls._ensure_dict(audit_row.before)
+        after = cls._ensure_dict(audit_row.after)
+
+        # Determine type of audit event
+        before_has_id = before.get("id") is not None
+        after_has_id = after.get("id") is not None
+
+        obj = None
+
+        if before_has_id and not after_has_id:
+            # Deletion: recreate object from before
+            field_values = cls._dict_to_field_values(before)
+            obj = cls.objects.using("default").create(**field_values)
+            action = "restore"
+        elif not before_has_id and after_has_id:
+            # Insertion: remove the inserted object
+            try:
+                obj = cls.objects.using("default").get(pk=after["id"])
+                obj.delete()
+            except cls.DoesNotExist:
+                obj = None
+            action = "restore"
+        elif before_has_id and after_has_id:
+            # Update: set fields to 'before' values
+            try:
+                obj = cls.objects.using("default").get(pk=before["id"])
+                field_values = cls._dict_to_field_values(before)
+                for k, v in field_values.items():
+                    setattr(obj, k, v)
+                obj.save()
+            except cls.DoesNotExist:
+                obj = None
+            action = "restore"
+        else:
+            # Unrecognized or empty entry
+            action = "restore"
+            obj = None
+
+        # Log the restore action with robust error handling
+        try:
+            AuditActions.objects.using("default").create(
+                action=action,
+                audit_table=audit_table._meta.db_table,
+                audit_row_id=audit_row.id,
+                user=user,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to log AuditActions for restore: {e}")
+        return obj
 
     @classmethod
     def check(cls, **kwargs):
