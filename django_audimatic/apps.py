@@ -57,6 +57,11 @@ class DjangoAudimaticConfig(AppConfig):
 
         patch_migrations()
 
+        # Disable database test serialization to avoid named cursor usage in test DB creation
+        from django.conf import settings
+        for db_conf in settings.DATABASES.values():
+            db_conf.setdefault('TEST', {})['SERIALIZE'] = False
+
         # Patch Django DB connections to avoid server-side cursors (chunked reads)
         from django.db import connections
         for conn in connections.all():
