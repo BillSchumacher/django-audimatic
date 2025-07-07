@@ -70,64 +70,6 @@ CRUD_TRIGGERS = [
 ]
 
 
-class AuditActions(models.Model):
-    """Tracks actions performed on a table.
-
-    When a record is restored from an audit trail, etc.
-    """
-
-    action = models.CharField(max_length=128)
-    audit_table = models.CharField(max_length=128)
-    audit_row_id = models.BigIntegerField()
-    timestamp = models.DateTimeField(auto_now_add=True)
-    user = models.ForeignKey(
-        get_user_model(), on_delete=models.DO_NOTHING, null=True, blank=True
-    )
-
-
-# --- M2M Audit Tracking ---
-
-_M2M_BEFORE_CACHE: "WeakKeyDictionary[models.Model, dict[str, set[int]]]" = WeakKeyDictionary()  # pragma: no cover
-
-def _handle_m2m_changed(sender, **kwargs):
-    instance = kwargs.get('instance')
-    action = kwargs.get('action')
-    field = kwargs.get('field')
-    # pk_set = kwargs.get('pk_set', set())  # Removed: unused variable for lint compliance
-    if not instance or not field:
-        return
-
-    field_name = field.name
-
-    # For pre_ actions, store the current relation set
-    if action in ('pre_add', 'pre_remove', 'pre_clear'):
-        current_ids = set(getattr(instance, field_name).values_list('pk', flat=True))
-        if instance not in _M2M_BEFORE_CACHE:
-            _M2M_BEFORE_CACHE[instance] = {}
-        _M2M_BEFORE_CACHE[instance][field_name] = current_ids
-
-    # For post_ actions, compare and write audit if changed
-    elif action in ('post_add', 'post_remove', 'post_clear'):
-        before = set()
-        before_dict = {}
-        after_dict = {}
-        if instance in _M2M_BEFORE_CACHE and field_name in _M2M_BEFORE_CACHE[instance]:
-            before = _M2M_BEFORE_CACHE[instance][field_name]
-        after = set(getattr(instance, field_name).values_list('pk', flat=True))
-        if before != after:
-            before_dict = {f"{field_name}_{pk}": "1" for pk in before}
-            after_dict = {f"{field_name}_{pk}": "1" for pk in after}
-            audit_table = instance.get_audit_table()
-            if audit_table:
-                audit_table.objects.create(before=before_dict, after=after_dict)
-        # Clean up
-        if instance in _M2M_BEFORE_CACHE and field_name in _M2M_BEFORE_CACHE[instance]:
-            del _M2M_BEFORE_CACHE[instance][field_name]
-        if instance in _M2M_BEFORE_CACHE and not _M2M_BEFORE_CACHE[instance]:
-            del _M2M_BEFORE_CACHE[instance]
-
-
-
 class AuditTrigger(models.Model):
     """ """
 
@@ -239,3 +181,60 @@ class AuditTrigger(models.Model):
                 sender=field.remote_field.through,
                 weak=False,
             )
+
+
+class AuditActions(models.Model):
+    """Tracks actions performed on a table.
+
+    When a record is restored from an audit trail, etc.
+    """
+
+    action = models.CharField(max_length=128)
+    audit_table = models.CharField(max_length=128)
+    audit_row_id = models.BigIntegerField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(
+        get_user_model(), on_delete=models.DO_NOTHING, null=True, blank=True
+    )
+
+
+# --- M2M Audit Tracking ---
+
+_M2M_BEFORE_CACHE: "WeakKeyDictionary[models.Model, dict[str, set[int]]]" = WeakKeyDictionary()  # pragma: no cover
+
+def _handle_m2m_changed(sender, **kwargs):
+    instance = kwargs.get('instance')
+    action = kwargs.get('action')
+    field = kwargs.get('field')
+    # pk_set = kwargs.get('pk_set', set())  # Removed: unused variable for lint compliance
+    if not instance or not field:
+        return
+
+    field_name = field.name
+
+    # For pre_ actions, store the current relation set
+    if action in ('pre_add', 'pre_remove', 'pre_clear'):
+        current_ids = set(getattr(instance, field_name).values_list('pk', flat=True))
+        if instance not in _M2M_BEFORE_CACHE:
+            _M2M_BEFORE_CACHE[instance] = {}
+        _M2M_BEFORE_CACHE[instance][field_name] = current_ids
+
+    # For post_ actions, compare and write audit if changed
+    elif action in ('post_add', 'post_remove', 'post_clear'):
+        before = set()
+        before_dict = {}
+        after_dict = {}
+        if instance in _M2M_BEFORE_CACHE and field_name in _M2M_BEFORE_CACHE[instance]:
+            before = _M2M_BEFORE_CACHE[instance][field_name]
+        after = set(getattr(instance, field_name).values_list('pk', flat=True))
+        if before != after:
+            before_dict = {f"{field_name}_{pk}": "1" for pk in before}
+            after_dict = {f"{field_name}_{pk}": "1" for pk in after}
+            audit_table = instance.get_audit_table()
+            if audit_table:
+                audit_table.objects.create(before=before_dict, after=after_dict)
+        # Clean up
+        if instance in _M2M_BEFORE_CACHE and field_name in _M2M_BEFORE_CACHE[instance]:
+            del _M2M_BEFORE_CACHE[instance][field_name]
+        if instance in _M2M_BEFORE_CACHE and not _M2M_BEFORE_CACHE[instance]:
+            del _M2M_BEFORE_CACHE[instance]
